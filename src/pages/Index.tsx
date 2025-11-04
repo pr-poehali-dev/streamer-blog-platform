@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,9 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 
+interface VKUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  photo_200?: string;
+}
+
+interface Giveaway {
+  id: number;
+  title: string;
+  prize: string;
+  endDate: string;
+  participants: number;
+  isParticipating?: boolean;
+}
+
+const VK_AUTH_URL = 'https://functions.poehali.dev/1a4ff10d-4c2a-4649-824c-eb64b1540d2f';
+const GIVEAWAYS_URL = 'https://functions.poehali.dev/fe692e3c-cd0d-4f49-ab5f-525ce84ef957';
+
 const Index = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [giveawayEmail, setGiveawayEmail] = useState('');
+  const [vkUser, setVkUser] = useState<VKUser | null>(null);
+  const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const games = [
     { name: 'Valorant', icon: '🎯', color: 'bg-red-500' },
@@ -27,11 +49,148 @@ const Index = () => {
     { day: 'Воскресенье', game: 'Dota 2', time: '16:00 - 22:00' },
   ];
 
-  const giveaways = [
-    { id: 1, title: 'Скины Valorant', prize: 'VP 2000', endDate: '15.11.2025', participants: 234 },
-    { id: 2, title: 'Набор CS2', prize: 'Нож Karambit', endDate: '20.11.2025', participants: 567 },
-    { id: 3, title: 'Battle Pass Dota 2', prize: 'Arcana', endDate: '25.11.2025', participants: 189 },
-  ];
+  useEffect(() => {
+    const storedUser = localStorage.getItem('vk_user');
+    if (storedUser) {
+      setVkUser(JSON.parse(storedUser));
+    }
+    loadGiveaways();
+  }, []);
+
+  useEffect(() => {
+    if (vkUser) {
+      loadGiveaways();
+    }
+  }, [vkUser]);
+
+  const loadGiveaways = async () => {
+    try {
+      const headers: any = {};
+      if (vkUser) {
+        headers['X-Vk-Id'] = vkUser.id.toString();
+      }
+      
+      const response = await fetch(GIVEAWAYS_URL, { headers });
+      const data = await response.json();
+      setGiveaways(data.giveaways || []);
+    } catch (error) {
+      console.error('Error loading giveaways:', error);
+    }
+  };
+
+  const handleVKLogin = () => {
+    const vkAppId = '52741095';
+    const redirectUri = window.location.origin;
+    const vkAuthUrl = `https://oauth.vk.com/authorize?client_id=${vkAppId}&display=popup&redirect_uri=${redirectUri}&scope=&response_type=token&v=5.131`;
+    
+    const width = 600;
+    const height = 400;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    const popup = window.open(
+      vkAuthUrl,
+      'vk_auth',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    const checkPopup = setInterval(() => {
+      try {
+        if (popup && popup.location.href.includes('access_token')) {
+          const hash = popup.location.hash.substring(1);
+          const params = new URLSearchParams(hash);
+          const accessToken = params.get('access_token');
+          const userId = params.get('user_id');
+          
+          if (accessToken && userId) {
+            fetchVKUserData(accessToken, userId);
+            popup.close();
+            clearInterval(checkPopup);
+          }
+        }
+        
+        if (popup && popup.closed) {
+          clearInterval(checkPopup);
+        }
+      } catch (e) {
+        
+      }
+    }, 500);
+  };
+
+  const fetchVKUserData = async (accessToken: string, userId: string) => {
+    try {
+      setIsLoading(true);
+      const vkApiUrl = `https://api.vk.com/method/users.get?user_ids=${userId}&fields=photo_200&access_token=${accessToken}&v=5.131`;
+      const response = await fetch(vkApiUrl);
+      const data = await response.json();
+      
+      if (data.response && data.response[0]) {
+        const user = data.response[0];
+        const vkUserData: VKUser = {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          photo_200: user.photo_200
+        };
+        
+        const authResponse = await fetch(VK_AUTH_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vk_user: vkUserData })
+        });
+        
+        if (authResponse.ok) {
+          setVkUser(vkUserData);
+          localStorage.setItem('vk_user', JSON.stringify(vkUserData));
+          loadGiveaways();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching VK user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVKLogout = () => {
+    setVkUser(null);
+    localStorage.removeItem('vk_user');
+    loadGiveaways();
+  };
+
+  const handleJoinGiveaway = async (giveawayId: number) => {
+    if (!vkUser) {
+      alert('Для участия в розыгрыше нужно войти через VK');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      const response = await fetch(GIVEAWAYS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          giveaway_id: giveawayId,
+          vk_id: vkUser.id
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('Вы успешно участвуете в розыгрыше!');
+        loadGiveaways();
+      } else {
+        alert(data.error || 'Ошибка при участии в розыгрыше');
+      }
+    } catch (error) {
+      console.error('Error joining giveaway:', error);
+      alert('Ошибка сети');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const steamKeys = [
     { id: 1, game: 'CS2 Prime Status', price: 1200, discount: 15, inStock: true, image: '🔑' },
@@ -89,9 +248,25 @@ const Index = () => {
                 </Button>
               ))}
             </div>
-            <Button variant="outline" className="md:hidden" onClick={() => setActiveSection('stream')}>
-              <Icon name="Menu" size={20} />
-            </Button>
+            <div className="flex items-center space-x-2">
+              {vkUser ? (
+                <div className="flex items-center space-x-2">
+                  <img src={vkUser.photo_200} alt="Avatar" className="w-8 h-8 rounded-full" />
+                  <span className="hidden md:inline text-sm">{vkUser.first_name}</span>
+                  <Button variant="ghost" size="sm" onClick={handleVKLogout}>
+                    <Icon name="LogOut" size={16} />
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={handleVKLogin} disabled={isLoading}>
+                  <Icon name="LogIn" size={16} className="mr-2" />
+                  Войти через VK
+                </Button>
+              )}
+              <Button variant="outline" className="md:hidden" onClick={() => setActiveSection('stream')}>
+                <Icon name="Menu" size={20} />
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -219,46 +394,78 @@ const Index = () => {
 
         {activeSection === 'giveaways' && (
           <div className="space-y-6 animate-fade-in">
-            <h2 className="text-4xl font-bold">
-              <Icon name="Gift" size={36} className="inline mr-3 text-secondary" />
-              Активные розыгрыши
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {giveaways.map((giveaway) => (
-                <Card key={giveaway.id} className="bg-gradient-to-br from-card to-card/50 border-secondary/20 hover:border-secondary transition-all duration-300 hover:scale-105">
-                  <CardHeader>
-                    <CardTitle>{giveaway.title}</CardTitle>
-                    <CardDescription>
-                      Приз: <span className="text-secondary font-semibold">{giveaway.prize}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Участников:</span>
-                      <span className="font-semibold">{giveaway.participants}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">До окончания:</span>
-                      <span className="font-semibold">{giveaway.endDate}</span>
-                    </div>
-                    <div className="space-y-2">
-                      <Input
-                        type="email"
-                        placeholder="Ваш Email"
-                        value={giveawayEmail}
-                        onChange={(e) => setGiveawayEmail(e.target.value)}
-                      />
+            <div className="flex items-center justify-between">
+              <h2 className="text-4xl font-bold">
+                <Icon name="Gift" size={36} className="inline mr-3 text-secondary" />
+                Активные розыгрыши
+              </h2>
+              {!vkUser && (
+                <Badge variant="outline" className="text-orange-500 border-orange-500">
+                  <Icon name="AlertCircle" size={14} className="mr-1" />
+                  Войдите через VK для участия
+                </Badge>
+              )}
+            </div>
+            {giveaways.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Загрузка розыгрышей...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {giveaways.map((giveaway) => (
+                  <Card key={giveaway.id} className="bg-gradient-to-br from-card to-card/50 border-secondary/20 hover:border-secondary transition-all duration-300 hover:scale-105">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>{giveaway.title}</CardTitle>
+                        {giveaway.isParticipating && (
+                          <Badge className="bg-green-500">
+                            <Icon name="Check" size={14} className="mr-1" />
+                            Участвуете
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription>
+                        Приз: <span className="text-secondary font-semibold">{giveaway.prize}</span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Участников:</span>
+                        <span className="font-semibold">{giveaway.participants}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">До окончания:</span>
+                        <span className="font-semibold">{giveaway.endDate}</span>
+                      </div>
                       <Button
                         className="w-full bg-gradient-to-r from-primary to-secondary"
-                        onClick={() => handleGiveawaySubmit(giveaway.id)}
+                        onClick={() => handleJoinGiveaway(giveaway.id)}
+                        disabled={!vkUser || giveaway.isParticipating || isLoading}
                       >
-                        Участвовать
+                        {!vkUser ? (
+                          <>
+                            <Icon name="Lock" size={18} className="mr-2" />
+                            Требуется авторизация
+                          </>
+                        ) : giveaway.isParticipating ? (
+                          <>
+                            <Icon name="Check" size={18} className="mr-2" />
+                            Уже участвуете
+                          </>
+                        ) : (
+                          <>
+                            <Icon name="Gift" size={18} className="mr-2" />
+                            Участвовать
+                          </>
+                        )}
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

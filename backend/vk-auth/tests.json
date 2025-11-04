@@ -1,0 +1,43 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS request for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST - Register VK user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "vk_user": {
+          "id": 123456789,
+          "first_name": "Иван",
+          "last_name": "Иванов",
+          "photo_200": "https://example.com/photo.jpg"
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "user_id": "number",
+        "vk_id": 123456789,
+        "token": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET - Validate token",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Token": "test-token-123"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "valid": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
