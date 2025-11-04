@@ -33,12 +33,22 @@ const Index = () => {
     { id: 3, title: 'Battle Pass Dota 2', prize: 'Arcana', endDate: '25.11.2025', participants: 189 },
   ];
 
+  const steamKeys = [
+    { id: 1, game: 'CS2 Prime Status', price: 1200, discount: 15, inStock: true, image: '🔑' },
+    { id: 2, game: 'Valorant VP 5000', price: 3500, discount: 0, inStock: true, image: '🎯' },
+    { id: 3, game: 'Dota 2 Arcana Pack', price: 2800, discount: 20, inStock: true, image: '⚔️' },
+    { id: 4, game: 'PUBG G-Coin 6000', price: 4200, discount: 10, inStock: true, image: '🔫' },
+    { id: 5, game: 'Steam Wallet 1000₽', price: 1000, discount: 5, inStock: true, image: '💰' },
+    { id: 6, game: 'Elden Ring', price: 2500, discount: 0, inStock: false, image: '🗡️' },
+  ];
+
   const navItems = [
     { id: 'home', label: 'Главная', icon: 'Home' },
     { id: 'stream', label: 'Стрим', icon: 'Tv' },
     { id: 'giveaways', label: 'Розыгрыши', icon: 'Gift' },
     { id: 'schedule', label: 'Расписание', icon: 'Calendar' },
     { id: 'about', label: 'О стримере', icon: 'User' },
+    { id: 'market', label: 'Маркет', icon: 'ShoppingCart' },
     { id: 'contacts', label: 'Контакты', icon: 'Mail' },
   ];
 
@@ -47,6 +57,10 @@ const Index = () => {
       alert(`Вы участвуете в розыгрыше #${giveawayId}!`);
       setGiveawayEmail('');
     }
+  };
+
+  const handleBuyKey = (keyId: number, gameName: string) => {
+    alert(`Покупка ключа: ${gameName}`);
   };
 
   return (
@@ -343,6 +357,109 @@ const Index = () => {
                 </Card>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'market' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h2 className="text-4xl font-bold">
+                <Icon name="ShoppingCart" size={36} className="inline mr-3 text-primary" />
+                Маркет Steam ключей
+              </h2>
+              <Badge className="bg-gradient-to-r from-primary to-secondary text-lg px-4 py-2">
+                <Icon name="Zap" size={16} className="mr-1" />
+                Мгновенная доставка
+              </Badge>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {steamKeys.map((key) => {
+                const finalPrice = key.discount > 0 ? key.price - (key.price * key.discount / 100) : key.price;
+                return (
+                  <Card key={key.id} className="bg-gradient-to-br from-card to-card/50 border-primary/20 hover:border-primary transition-all duration-300 hover:scale-105 relative overflow-hidden">
+                    {key.discount > 0 && (
+                      <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold z-10">
+                        -{key.discount}%
+                      </div>
+                    )}
+                    {!key.inStock && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                        <Badge variant="destructive" className="text-lg px-4 py-2">
+                          Нет в наличии
+                        </Badge>
+                      </div>
+                    )}
+                    <CardHeader>
+                      <div className="text-6xl mb-4 text-center">{key.image}</div>
+                      <CardTitle className="text-center">{key.game}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {key.discount > 0 ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-2xl font-bold text-primary">{finalPrice}₽</span>
+                            <span className="text-lg text-muted-foreground line-through">{key.price}₽</span>
+                          </div>
+                        ) : (
+                          <div className="text-2xl font-bold text-center text-primary">{key.price}₽</div>
+                        )}
+                      </div>
+                      <Button
+                        className="w-full bg-gradient-to-r from-primary to-secondary"
+                        disabled={!key.inStock}
+                        onClick={() => handleBuyKey(key.id, key.game)}
+                      >
+                        <Icon name="ShoppingBag" size={18} className="mr-2" />
+                        {key.inStock ? 'Купить ключ' : 'Недоступно'}
+                      </Button>
+                      <div className="flex items-center justify-center text-xs text-muted-foreground">
+                        <Icon name="Shield" size={14} className="mr-1" />
+                        Гарантия подлинности
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+            <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Icon name="Info" size={24} className="mr-2 text-primary" />
+                  Как купить ключ?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xl font-bold">
+                      1
+                    </div>
+                    <h3 className="font-semibold">Выберите товар</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Нажмите "Купить ключ" на понравившемся товаре
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-xl font-bold">
+                      2
+                    </div>
+                    <h3 className="font-semibold">Оплатите</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Безопасная оплата через защищенную систему
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xl font-bold">
+                      3
+                    </div>
+                    <h3 className="font-semibold">Получите ключ</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Мгновенная доставка на указанный email
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
