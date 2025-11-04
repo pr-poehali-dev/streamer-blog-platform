@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
+import ScratchCard from '@/components/ScratchCard';
 
 interface VKUser {
   id: number;
@@ -326,6 +327,11 @@ const Index = () => {
                 </div>
               </div>
             </section>
+
+            <ScratchCard 
+              steamKey="XXXXX-YYYYY-ZZZZZ"
+              onRevealed={() => console.log('Ключ открыт!')}
+            />
 
             <section className="grid md:grid-cols-3 gap-6">
               <Card className="bg-gradient-to-br from-card to-card/50 border-primary/20 hover:border-primary/50 transition-all duration-300 hover:scale-105">
